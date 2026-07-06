@@ -1,0 +1,50 @@
+name: WooCommerce BG Scraper
+
+on:
+  workflow_dispatch:
+    inputs:
+      max_sites:
+        description: "Limit for test run. Use 0 for no limit."
+        required: true
+        default: "100"
+      indexes:
+        description: "How many latest Common Crawl indexes to scan"
+        required: true
+        default: "3"
+      require_hosted_bg:
+        description: "Only keep/check sites with IP geolocated in Bulgaria"
+        required: true
+        default: "true"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scraper
+        env:
+          IPINFO_TOKEN: ${{ secrets.IPINFO_TOKEN }}
+        run: |
+          if [ "${{ github.event.inputs.require_hosted_bg }}" = "true" ]; then
+            python scraper.py --indexes "${{ github.event.inputs.indexes }}" --max-sites "${{ github.event.inputs.max_sites }}" --require-hosted-bg --workers 10
+          else
+            python scraper.py --indexes "${{ github.event.inputs.indexes }}" --max-sites "${{ github.event.inputs.max_sites }}" --workers 10
+          fi
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: woocommerce-bg-results
+          path: output/
