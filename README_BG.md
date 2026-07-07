@@ -1,76 +1,89 @@
-# WooCommerce BG Scraper
+# WooCommerce BG Scraper v2
 
-Скриптът търси публично видими WooCommerce сайтове, които:
-1. са WooCommerce / онлайн магазин;
-2. са на български;
-3. имат IP/хостинг в България;
-4. извлича име на сайт, фирма, ЕИК, категория, email и контактна страница.
+Тази версия поправя основния проблем от v1: вече **не прескача сайтове предварително само защото IP-то не изглежда българско**. Това е важно, защото много реални български магазини са зад Cloudflare/CDN и IP геолокацията не показва реалния origin hosting.
 
-## Как работи
+## Какво извежда
 
-- Намира кандидати през Common Crawl по WooCommerce URL/asset следи.
-- Проверява всеки сайт live.
-- Търси WooCommerce маркери: `wp-content/plugins/woocommerce`, `wc-ajax`, `add_to_cart_button`, checkout/cart/product структури.
-- Проверява български език чрез `<html lang="bg">`, кирилица и думи като `доставка`, `поръчка`, `количка`, `лв.`.
-- Проверява IP геолокация чрез IPinfo token, ако е наличен, иначе fallback към ip-api.com.
-- Извлича email-и и фирмени данни от начална, контактна, общи условия, privacy/GDPR и доставка страници.
+В `output/` ще получиш:
 
-## Инсталация локално
+1. `01_verified_woocommerce_bg_language.xlsx`  
+   Всички потвърдени WooCommerce онлайн магазини на български.
 
-```bash
-pip install -r requirements.txt
-python scraper.py --max-sites 100 --indexes 2 --require-hosted-bg
-```
+2. `02_confirmed_hosted_in_bg.xlsx`  
+   Само потвърдените WooCommerce магазини, чието видимо IP е в България и не изглежда като CDN/proxy.
+
+3. `03_possible_bg_or_cdn.xlsx`  
+   Практичен файл за leads: WooCommerce + български език + онлайн магазин, включително сайтове зад CDN/proxy или с неизвестен hosting.
+
+4. `04_verified_no_email_found.xlsx`  
+   Валидни магазини, при които email не е намерен.
+
+5. `99_all_checked.xlsx`  
+   Всички проверени кандидати, включително филтрираните.
+
+6. `00_candidates.csv`  
+   Списък с кандидат домейни преди live проверката.
+
+## GitHub Actions настройки
 
 За пълно пускане:
 
-```bash
-python scraper.py --indexes 5 --limit-per-pattern 50000 --require-hosted-bg --workers 10
+```text
+max_sites = 0
+indexes = 6
+global_discovery = false
 ```
 
-## GitHub Actions
+За бърз тест:
 
-1. Качи файловете в GitHub repository.
-2. Влез в Actions.
-3. Избери `WooCommerce BG Scraper`.
-4. Run workflow.
-5. За тест сложи `max_sites = 100`.
-6. За пълно пускане сложи `max_sites = 0`.
+```text
+max_sites = 300
+indexes = 3
+global_discovery = false
+```
 
-## По-добра IP геолокация
+Ако искаш да търси и български магазини на `.com`, `.eu`, `.net` и други домейни:
 
-Създай безплатен/платен IPinfo token и го добави в GitHub:
+```text
+max_sites = 0
+indexes = 6
+global_discovery = true
+```
+
+`global_discovery = true` е по-бавно и по-шумно, но може да намери магазини извън `.bg`.
+
+## Препоръка
+
+Първо гледай файла:
+
+```text
+01_verified_woocommerce_bg_language.xlsx
+```
+
+След това, ако държиш много строго на хостинг в България, ползвай:
+
+```text
+02_confirmed_hosted_in_bg.xlsx
+```
+
+Ако целта е lead generation, най-полезен често е:
+
+```text
+03_possible_bg_or_cdn.xlsx
+```
+
+Защото много магазини са зад Cloudflare и реалният им хостинг не може да се потвърди само по IP.
+
+## По-добра IP проверка
+
+Добави `IPINFO_TOKEN` като GitHub Secret:
 
 `Settings → Secrets and variables → Actions → New repository secret`
 
-Име:
-
-`IPINFO_TOKEN`
-
-## Допълнителни домейни
-
-Можеш да добавиш `seeds.txt` с URL-и/домейни, по един на ред:
+Name:
 
 ```text
-https://example.bg
-shop.example.com
-https://example.com
+IPINFO_TOKEN
 ```
 
-Това е полезно за `.com`, `.eu` или други български магазини, които Common Crawl `.bg` търсенето може да пропусне.
-
-## Изходни файлове
-
-В папка `output/`:
-
-- `woocommerce_bg_final_hosted_bg.xlsx` — финалният файл;
-- `woocommerce_bg_final_hosted_bg.csv`;
-- `woocommerce_bg_all_checked.xlsx` — всички проверени, включително филтрирани;
-- `woocommerce_bg_all_checked.csv`.
-
-## Ограничения
-
-- Не може да гарантира 100% всички сайтове в интернет.
-- Cloudflare/CDN може да скрие реалния хостинг. Такива сайтове се маркират като CDN/proxy.
-- Някои сайтове крият email чрез изображения, форми или JavaScript.
-- Използвай данните само при спазване на GDPR, ePrivacy и правилата за търговска комуникация.
+Без token скриптът използва fallback услуга, която може да има rate limits.
